@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MADIP Private Loan System</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+<style>
+body{font-family:Arial;background:#0b1220;color:white;margin:0;padding:20px}
+.container{max-width:900px;margin:auto}
+
+input,button{
+width:100%;padding:10px;margin:5px 0;border:none;border-radius:8px}
+
+button{background:#22c55e;color:white}
+
+.card{background:#1e293b;padding:10px;margin:10px 0;border-radius:10px}
+
+.hidden{display:none}
+
+.stats{display:flex;gap:10px}
+.box{flex:1;background:#1e293b;padding:10px;border-radius:10px}
+
+</style>
+</head>
+
+<body>
+
+<h1>💼 MADIP PRIVATE SYSTEM</h1>
+
+<!-- LOGIN -->
+<div id="login">
+  <input type="password" id="pass" placeholder="Enter Passkey">
+  <button onclick="login()">Enter</button>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden container">
+
+<h3>Register Client</h3>
+
+<input id="name" placeholder="Name">
+<input id="income" placeholder="Income">
+<input id="loan" placeholder="Loan Request">
+<input type="file" id="photo">
+
+<button onclick="saveClient()">Save Client</button>
+
+<hr>
+
+<div class="stats">
+  <div class="box">Total <h2 id="total">0</h2></div>
+  <div class="box">Low <h2 id="low">0</h2></div>
+  <div class="box">High <h2 id="high">0</h2></div>
+</div>
+
+<canvas id="chart"></canvas>
+
+<h3>Clients</h3>
+<div id="list"></div>
+
+</div>
+
+<script>
+
+/* FIREBASE */
+const firebaseConfig = {
+  apiKey:"YOUR_KEY",
+  authDomain:"YOUR_DOMAIN",
+  projectId:"YOUR_ID",
+  storageBucket:"YOUR_BUCKET"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+/* LOGIN */
+const PASS = "madip123";
+
+function login(){
+  if(pass.value === PASS){
+    login.style.display="none";
+    app.classList.remove("hidden");
+    load();
+  } else alert("Wrong passkey");
+}
+
+/* RISK ENGINE */
+function risk(income){
+  if(income > 50000) return "low";
+  if(income > 20000) return "medium";
+  return "high";
+}
+
+/* SAVE CLIENT */
+async function saveClient(){
+
+let file = photo.files[0];
+let url="";
+
+if(file){
+let ref = storage.ref("madip/"+Date.now());
+await ref.put(file);
+url = await ref.getDownloadURL();
+}
+
+let r = risk(income.value);
+
+await db.collection("clients").add({
+name:name.value,
+income:income.value,
+loan:loan.value,
+risk:r,
+photo:url,
+createdAt:new Date()
+});
+
+load();
+}
+
+/* LOAD */
+async function load(){
+
+let snap = await db.collection("clients").get();
+
+let list = document.getElementById("list");
+list.innerHTML="";
+
+let total=0,low=0,high=0;
+
+snap.forEach(d=>{
+let c=d.data();
+
+total++;
+if(c.risk=="low") low++;
+if(c.risk=="high") high++;
+
+let div=document.createElement("div");
+div.className="card";
+
+div.innerHTML=`
+<h3>${c.name}</h3>
+<p>Income: ${c.income}</p>
+<p>Loan: ${c.loan}</p>
+<p>Risk: ${c.risk}</p>
+`;
+
+list.appendChild(div);
+});
+
+document.getElementById("total").innerText=total;
+document.getElementById("low").innerText=low;
+document.getElementById("high").innerText=high;
+
+drawChart(low,high,total-low-high);
+}
+
+/* CHART */
+function drawChart(low,high,medium){
+
+new Chart(document.getElementById("chart"),{
+type:"pie",
+data:{
+labels:["Low","High","Medium"],
+datasets:[{
+data:[low,high,medium]
+}]
+}
+});
+
+}
+
+</script>
+
+</body>
+  </html>
